@@ -123,6 +123,7 @@ public class TemporaryControl {
 		
 		Random seedGn = new Random();
 		int seed = seedGn.nextInt();
+		//multiple loops
 		for(int i = len; i >= 0; i--) {		
 			runProgram(probs.get(i), i+1, seed);			
 			
