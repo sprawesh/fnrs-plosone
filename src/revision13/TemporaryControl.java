@@ -39,7 +39,7 @@ public class TemporaryControl {
 	}
 	
 	
-	private static void runProgram(double[] prob, int it, int seed) {
+	private static void runProgram(double[] prob, int it, int seed, StringBuilder gini_test) {
 		ArrayList<ArrayList<ArrayList<Double>>> repdatapoints = new ArrayList<ArrayList<ArrayList<Double>>>();
 		ArrayList<ArrayList<ArrayList<Double>>> m2datapoints = new ArrayList<ArrayList<ArrayList<Double>>>();
 		ArrayList<ArrayList<ArrayList<Double>>> accLosses = new ArrayList<ArrayList<ArrayList<Double>>>();
@@ -104,16 +104,17 @@ public class TemporaryControl {
 			jsds.add(distortion);
 			System.out.println("-----------new exponent " + (i-1) + "----------"); 
 		}
-		writeFile(repdatapoints, "M1" + "-" + it + ".csv", rexp);
-		writeFile(m2datapoints, "M2" + "-" + it + ".csv", rexp);
+		writeFile(repdatapoints, "M1" + "-" + it + ".csv", rexp, null);
+		writeFile(m2datapoints, "M2" + "-" + it + ".csv", rexp, null);
 		
-		writeFile(accLosses, "accLossMetric" + "-" + it + ".csv", rexp); 		
-		writeFile(rentropies, "JSDMetric" + "-" + it + ".csv", rexp); 
-		writeFile(giniAll, "Gini" + "-" + it + ".csv", rexp);
+		writeFile(accLosses, "accLossMetric" + "-" + it + ".csv", rexp, null); 		
+		writeFile(rentropies, "JSDMetric" + "-" + it + ".csv", rexp, null); 
+		writeFile(giniAll, "Gini" + "-" + it + ".csv", rexp, gini_test);
 		
 		writeMetric(acclosses, jsds, "Metrics" + "-" + it + ".csv");
 		//writeMetric(ncclosses, jsds, "nMetrics" + "-" + it + ".csv");
-	}
+	}	
+	
 
 	//Main method to execute multi-threading implementation of simulation
 	public static void main(String[] args) {	
@@ -121,13 +122,23 @@ public class TemporaryControl {
 		ArrayList<double[]> probs = rsensitivity();
 		int len = probs.size()-1;
 		
+		StringBuilder gini_test = new StringBuilder(); //Gini test data
 		Random seedGn = new Random();
-		int seed = seedGn.nextInt();
-		//multiple loops
-		for(int i = len; i >= 0; i--) {		
-			runProgram(probs.get(i), i+1, seed);			
+		
+		//we only need multiple loops here to generate data for t-test.
+		int pr = 0;
+		for(int it = 0; it < 50; it++) {
 			
-		}		
+			System.out.println("iteration : " + (it+1)); 
+			int seed = seedGn.nextInt();		
+			//for experimenting with multiple reading probabilities we will have to insert another character after the completion of simulation for..
+			//..a reading probability
+			for(int i = len-1; i >= len-1; i--) {		//int i = len; i >= 0; i-- for all reading probabilities
+				runProgram(probs.get(i), i+1, seed, gini_test);			
+				pr = i+1;
+			}			
+		}
+		writeTest(gini_test, pr);
 		System.out.println("done!");
 		
 	}
@@ -180,7 +191,39 @@ public class TemporaryControl {
 		
 	}
 	
-	private static void writeFile(ArrayList<ArrayList<ArrayList<Double>>> repdatapoints, String path, ArrayList<Double> rexp) {
+	private static void updateGini(StringBuilder all, StringBuilder gini_last) {
+		
+		//Get the last row
+		//append it to gini_last
+		int temp = all.lastIndexOf("\n");
+		int last = all.length()-1;
+		//char s = all.charAt(last);
+		all.deleteCharAt(last);
+		
+		temp = all.lastIndexOf("\n");
+		String val = all.substring(temp+1);
+		String x = val.concat("\n");
+		gini_last.append(x);
+		
+	}
+	
+	public static void writeTest(StringBuilder sb, int it) {
+		//write Gini test file here.
+		String path = "Gini-" + it + "-t-test.csv";
+		try {
+			BufferedWriter bw  = new BufferedWriter(new FileWriter(path));
+			//header
+			bw.write("run,hard,exp0,exp2,exp4,exp6,exp8\n");
+			bw.write(sb.toString());
+			bw.flush(); bw.close(); 
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private static void writeFile(ArrayList<ArrayList<ArrayList<Double>>> repdatapoints, String path, ArrayList<Double> rexp, StringBuilder gini) {
 		try {
 			StringBuilder sb = new StringBuilder();
 			BufferedWriter bw  = new BufferedWriter(new FileWriter(path));
@@ -210,7 +253,12 @@ public class TemporaryControl {
 					sb.append(repdatapoints.get(j).get(i).get(1) + ","); 
 				}
 				sb.append('\n');
-			}			
+			}
+			
+			if(gini != null) {
+				//get the last row for Gini coefficient. 
+				updateGini(sb, gini);
+			}
 			
 			bw.write(sb.toString());
 			bw.flush(); bw.close(); 
